@@ -1,7 +1,8 @@
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 
 public class Main extends JFrame {
 
@@ -87,11 +88,42 @@ public class Main extends JFrame {
         formPanel.add(passwordField);
         formPanel.add(buttonPanel);
 
+        // Database connection status label
+        JLabel dbStatusLabel = new JLabel("", JLabel.CENTER);
+        dbStatusLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        dbStatusLabel.setForeground(Color.WHITE);
+        dbStatusLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
+
+        // Check database connection
+        checkDatabaseConnection(dbStatusLabel);
+
         // Adding all components to the main panel
         panel.add(titleLabel, BorderLayout.NORTH);
         panel.add(formPanel, BorderLayout.CENTER);
+        panel.add(dbStatusLabel, BorderLayout.SOUTH);
 
         add(panel);
+    }
+
+    private void checkDatabaseConnection(JLabel dbStatusLabel) {
+        // Database connection details
+        String url = "jdbc:mysql://localhost:3306/keypanel"; // Replace with your database URL
+        String user = "root"; // Replace with your database username
+        String password = ""; // Replace with your database password
+
+        try (Connection connection = DriverManager.getConnection(url, user, password)) {
+            if (connection != null) {
+                dbStatusLabel.setText("Database Connection: Valid");
+                dbStatusLabel.setForeground(Color.GREEN);
+            } else {
+                dbStatusLabel.setText("Database Connection: Invalid");
+                dbStatusLabel.setForeground(Color.RED);
+            }
+        } catch (SQLException e) {
+            dbStatusLabel.setText("Database Connection: Invalid");
+            dbStatusLabel.setForeground(Color.RED);
+            e.printStackTrace();
+        }
     }
 
     public static void main(String[] args) {
