@@ -1,7 +1,14 @@
 import javax.swing.*;
 import java.awt.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 
 public class LoginForm extends JFrame {
+    private JTextField usernameField;
+    private JPasswordField passwordField;
+
     public LoginForm() {
         setTitle("Login Panel");
         setSize(400, 500);
@@ -32,15 +39,18 @@ public class LoginForm extends JFrame {
         styleLabel(usernameLabel);
         styleLabel(passwordLabel);
 
-        JTextField usernameField = new JTextField();
-        JPasswordField passwordField = new JPasswordField();
+        usernameField = new JTextField();
+        passwordField = new JPasswordField();
         styleTextField(usernameField);
         styleTextField(passwordField);
 
         JButton loginButton = createStyledButton("Login");
         JButton registerButton = createStyledButton("Create Account");
 
-        // FIX: Add Action Listener to Open Register Form
+        // Add Action Listener for Login Button
+        loginButton.addActionListener(e -> loginUser());
+
+        // Add Action Listener for Register Button
         registerButton.addActionListener(e -> {
             new RegisterForm().setVisible(true); // Open Register Form
             dispose(); // Close Login Form
@@ -63,6 +73,39 @@ public class LoginForm extends JFrame {
         panel.add(titleLabel, BorderLayout.NORTH);
         panel.add(formPanel, BorderLayout.CENTER);
         add(panel);
+    }
+
+    private void loginUser() {
+        String username = usernameField.getText();
+        String password = new String(passwordField.getPassword());
+
+        if (username.isEmpty() || password.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Username and password cannot be empty.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        try (Connection connection = DatabaseConnection.getConnection()) {
+            String query = "SELECT password FROM users WHERE username = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(query)) {
+                stmt.setString(1, username);
+                ResultSet rs = stmt.executeQuery();
+
+                if (rs.next()) {
+                    String storedPassword = rs.getString("password");
+                    if (password.equals(storedPassword)) {
+                        JOptionPane.showMessageDialog(this, "Login successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                        // Open the main application window or perform other actions
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Invalid username or password.", "Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                } else {
+                    JOptionPane.showMessageDialog(this, "User not found.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Database error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     private void styleTextField(JTextField field) {

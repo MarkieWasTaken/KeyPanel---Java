@@ -1,10 +1,21 @@
 import javax.swing.*;
 import java.awt.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.sql.Statement;
 
 public class RegisterForm extends JFrame {
+    private JTextField usernameField;
+    private JTextField emailField;
+    private JPasswordField passwordField;
+    private JComboBox<String> locationComboBox;
+
     public RegisterForm() {
         setTitle("Register Panel");
-        setSize(400, 650);  // Increase size to accommodate new field
+        setSize(400, 650);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
@@ -33,26 +44,23 @@ public class RegisterForm extends JFrame {
         JLabel passwordLabel = new JLabel("Password:");
         JLabel locationLabel = new JLabel("Location:");
 
-        // Style the labels
         styleLabel(usernameLabel);
         styleLabel(emailLabel);
         styleLabel(passwordLabel);
         styleLabel(locationLabel);
 
-        // Text Fields and ComboBox
-        JTextField usernameField = new JTextField();
-        JTextField emailField = new JTextField();
-        JPasswordField passwordField = new JPasswordField();
+        // Text Fields
+        usernameField = new JTextField();
+        emailField = new JTextField();
+        passwordField = new JPasswordField();
 
-        // Create the Location dropdown (ComboBox)
-        String[] locations = {"New York", "Los Angeles", "Chicago", "Miami", "Houston"};
-        JComboBox<String> locationComboBox = new JComboBox<>(locations);
+        // Fetch locations from database
+        locationComboBox = new JComboBox<>(fetchLocationsFromDatabase());
         locationComboBox.setPreferredSize(new Dimension(300, 40));
         locationComboBox.setBackground(new Color(64, 68, 75));
         locationComboBox.setForeground(Color.WHITE);
         locationComboBox.setFont(new Font("Arial", Font.PLAIN, 16));
 
-        // Style text fields
         styleTextField(usernameField);
         styleTextField(emailField);
         styleTextField(passwordField);
@@ -61,7 +69,7 @@ public class RegisterForm extends JFrame {
         JButton registerButton = createStyledButton("Register");
         JButton backButton = createStyledButton("Back to Login");
 
-        // Add components to the formPanel
+        // Add components
         gbc.gridx = 0;
         gbc.gridy = 0;
         formPanel.add(usernameLabel, gbc);
@@ -76,21 +84,102 @@ public class RegisterForm extends JFrame {
         gbc.gridy++;
         formPanel.add(passwordField, gbc);
         gbc.gridy++;
-        formPanel.add(locationLabel, gbc);  // Add the Location label
+        formPanel.add(locationLabel, gbc);
         gbc.gridy++;
-        formPanel.add(locationComboBox, gbc);  // Add the Location ComboBox
+        formPanel.add(locationComboBox, gbc);
         gbc.gridy++;
         formPanel.add(registerButton, gbc);
         gbc.gridy++;
         formPanel.add(backButton, gbc);
 
-        // Add everything to the panel
+        // Add action listeners
+        registerButton.addActionListener(e -> registerUser());
+        backButton.addActionListener(e -> {
+            new LoginForm().setVisible(true); // Open Login Form
+            dispose(); // Close Register Form
+        });
+
         panel.add(titleLabel, BorderLayout.NORTH);
         panel.add(formPanel, BorderLayout.CENTER);
         add(panel);
     }
 
-    // Method to style text fields
+    private void registerUser() {
+        String username = usernameField.getText();
+        String email = emailField.getText();
+        String password = new String(passwordField.getPassword());
+        String location = (String) locationComboBox.getSelectedItem();
+
+        if (username.isEmpty() || email.isEmpty() || password.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "All fields are required.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        try (Connection connection = DatabaseConnection.getConnection()) {
+            // Check if username or email already exists
+            String checkQuery = "SELECT id FROM users WHERE username = ? OR email = ?";
+            try (PreparedStatement checkStmt = connection.prepareStatement(checkQuery)) {
+                checkStmt.setString(1, username);
+                checkStmt.setString(2, email);
+                ResultSet rs = checkStmt.executeQuery();
+
+                if (rs.next()) {
+                    JOptionPane.showMessageDialog(this, "Username or email already exists.", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+            }
+
+            // Insert new user
+            String insertQuery = "INSERT INTO users (username, password, email, location_id, is_admin, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())";
+            try (PreparedStatement insertStmt = connection.prepareStatement(insertQuery)) {
+                insertStmt.setString(1, username);
+                insertStmt.setString(2, password); // Store password in plain text
+                insertStmt.setString(3, email);
+                insertStmt.setInt(4, getLocationId(location)); // Get location ID
+                insertStmt.setBoolean(5, false); // Default to non-admin
+                insertStmt.executeUpdate();
+
+                JOptionPane.showMessageDialog(this, "Registration successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                new LoginForm().setVisible(true); // Open Login Form
+                dispose(); // Close Register Form
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Database error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private int getLocationId(String locationName) throws SQLException {
+        try (Connection connection = DatabaseConnection.getConnection()) {
+            String query = "SELECT id FROM location WHERE name = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(query)) {
+                stmt.setString(1, locationName);
+                ResultSet rs = stmt.executeQuery();
+                if (rs.next()) {
+                    return rs.getInt("id");
+                }
+            }
+        }
+        return -1; // Location not found
+    }
+
+    private String[] fetchLocationsFromDatabase() {
+        ArrayList<String> locations = new ArrayList<>();
+        try (Connection connection = DatabaseConnection.getConnection();
+             Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT name FROM location")) {
+
+            while (rs.next()) {
+                locations.add(rs.getString("name"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error fetching locations: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+
+        return locations.toArray(new String[0]); // Convert list to array for JComboBox
+    }
+
     private void styleTextField(JTextField field) {
         field.setPreferredSize(new Dimension(300, 40));
         field.setBackground(new Color(64, 68, 75));
@@ -103,13 +192,11 @@ public class RegisterForm extends JFrame {
         field.setFont(new Font("Arial", Font.PLAIN, 16));
     }
 
-    // Method to style labels
     private void styleLabel(JLabel label) {
         label.setForeground(Color.WHITE);
         label.setFont(new Font("Arial", Font.BOLD, 16));
     }
 
-    // Method to create styled buttons
     private JButton createStyledButton(String text) {
         JButton button = new JButton(text);
         button.setPreferredSize(new Dimension(300, 45));
