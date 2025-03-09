@@ -1,17 +1,17 @@
+import io.github.cdimascio.dotenv.Dotenv;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class DatabaseConnection {
-    // Database connection details
-    private static final String URL = "jdbc:mysql://localhost:3306/keypanel"; // Replace with your database URL
-    private static final String USER = "root"; // Replace with your database username
-    private static final String PASSWORD = ""; // Replace with your database password
+    private static final Dotenv dotenv = Dotenv.configure().load(); // Auto-detect .env
 
-    // Static method to get a database connection
+    private static final String URL = dotenv.get("DB_URL");
+    private static final String USER = dotenv.get("DB_USER");
+    private static final String PASSWORD = dotenv.get("DB_PASSWORD");
+
     public static Connection getConnection() throws SQLException {
         try {
-            // Load the MySQL JDBC driver
             Class.forName("com.mysql.cj.jdbc.Driver");
         } catch (ClassNotFoundException e) {
             System.err.println("MySQL JDBC Driver not found.");
@@ -19,7 +19,6 @@ public class DatabaseConnection {
             throw new SQLException("MySQL JDBC Driver not found.");
         }
 
-        // Establish and return the connection
         return DriverManager.getConnection(URL, USER, PASSWORD);
     }
 }
