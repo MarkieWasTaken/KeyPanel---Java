@@ -85,15 +85,24 @@ public class LoginForm extends JFrame {
         }
 
         try (Connection connection = DatabaseConnection.getConnection()) {
-            String query = "SELECT password FROM users WHERE username = ?";
+            String query = "SELECT password, is_admin FROM users WHERE username = ?";
             try (PreparedStatement stmt = connection.prepareStatement(query)) {
                 stmt.setString(1, username);
                 ResultSet rs = stmt.executeQuery();
 
                 if (rs.next()) {
                     String storedPassword = rs.getString("password");
+                    boolean isAdmin = rs.getBoolean("is_admin");
+
                     if (password.equals(storedPassword)) {
-                        JOptionPane.showMessageDialog(this, "Login successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                        if (isAdmin) {
+                            JOptionPane.showMessageDialog(this, "Login successful! Logged in as Admin.", "Success", JOptionPane.INFORMATION_MESSAGE);
+
+                        } else {
+                            JOptionPane.showMessageDialog(this, "Login successful! Logged in as User.", "Success", JOptionPane.INFORMATION_MESSAGE);
+                            new UserForm().setVisible(true); // Open Register Form
+                            dispose();
+                        }
                         // Open the main application window or perform other actions
                     } else {
                         JOptionPane.showMessageDialog(this, "Invalid username or password.", "Error", JOptionPane.ERROR_MESSAGE);
@@ -107,6 +116,7 @@ public class LoginForm extends JFrame {
             JOptionPane.showMessageDialog(this, "Database error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
+
 
     private void styleTextField(JTextField field) {
         field.setPreferredSize(new Dimension(300, 40));

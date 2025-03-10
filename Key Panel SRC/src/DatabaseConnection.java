@@ -12,11 +12,11 @@ public class DatabaseConnection {
 
     public static Connection getConnection() throws SQLException {
         try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
+            Class.forName("org.postgresql.Driver"); // Use PostgreSQL driver
         } catch (ClassNotFoundException e) {
-            System.err.println("MySQL JDBC Driver not found.");
+            System.err.println("PostgreSQL JDBC Driver not found.");
             e.printStackTrace();
-            throw new SQLException("MySQL JDBC Driver not found.");
+            throw new SQLException("PostgreSQL JDBC Driver not found.");
         }
 
         return DriverManager.getConnection(URL, USER, PASSWORD);
