@@ -85,25 +85,26 @@ public class LoginForm extends JFrame {
         }
 
         try (Connection connection = DatabaseConnection.getConnection()) {
-            String query = "SELECT password, is_admin FROM users WHERE username = ?";
+            String query = "SELECT * FROM check_user_credentials(?, ?)";
             try (PreparedStatement stmt = connection.prepareStatement(query)) {
                 stmt.setString(1, username);
+                stmt.setString(2, password);
                 ResultSet rs = stmt.executeQuery();
 
                 if (rs.next()) {
-                    String storedPassword = rs.getString("password");
+                    boolean isValid = rs.getBoolean("is_valid");
                     boolean isAdmin = rs.getBoolean("is_admin");
 
-                    if (password.equals(storedPassword)) {
+                    if (isValid) {
                         if (isAdmin) {
                             JOptionPane.showMessageDialog(this, "Login successful! Logged in as Admin.", "Success", JOptionPane.INFORMATION_MESSAGE);
-
+                            new AdminForm().setVisible(true);
+                            dispose();
                         } else {
                             JOptionPane.showMessageDialog(this, "Login successful! Logged in as User.", "Success", JOptionPane.INFORMATION_MESSAGE);
-                            new UserForm().setVisible(true); // Open Register Form
+                            new UserForm().setVisible(true);
                             dispose();
                         }
-                        // Open the main application window or perform other actions
                     } else {
                         JOptionPane.showMessageDialog(this, "Invalid username or password.", "Error", JOptionPane.ERROR_MESSAGE);
                     }
@@ -116,6 +117,7 @@ public class LoginForm extends JFrame {
             JOptionPane.showMessageDialog(this, "Database error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
+
 
 
     private void styleTextField(JTextField field) {

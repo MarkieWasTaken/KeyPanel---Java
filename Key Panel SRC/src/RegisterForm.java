@@ -110,38 +110,31 @@ public class RegisterForm extends JFrame {
         String password = new String(passwordField.getPassword());
         String location = (String) locationComboBox.getSelectedItem();
 
+        // Check if all fields are filled
         if (username.isEmpty() || email.isEmpty() || password.isEmpty()) {
             JOptionPane.showMessageDialog(this, "All fields are required.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        try (Connection connection = DatabaseConnection.getConnection()) {
-            // Check if username or email already exists
-            String checkQuery = "SELECT id FROM users WHERE username = ? OR email = ?";
-            try (PreparedStatement checkStmt = connection.prepareStatement(checkQuery)) {
-                checkStmt.setString(1, username);
-                checkStmt.setString(2, email);
-                ResultSet rs = checkStmt.executeQuery();
+        try {
+            // Call the Register function to handle user registration, including email and location
+            try (Connection connection = DatabaseConnection.getConnection()) {
+                String registerQuery = "SELECT Register(?, ?, ?, ?)";
+                try (PreparedStatement registerStmt = connection.prepareStatement(registerQuery)) {
+                    registerStmt.setString(1, username);
+                    registerStmt.setString(2, password); // Store password in plain text
+                    registerStmt.setString(3, email);
+                    registerStmt.setInt(4, getLocationId(location)); // Get location ID
 
-                if (rs.next()) {
-                    JOptionPane.showMessageDialog(this, "Username or email already exists.", "Error", JOptionPane.ERROR_MESSAGE);
-                    return;
+                    ResultSet rs = registerStmt.executeQuery();
+                    if (rs.next() && rs.getBoolean(1)) {
+                        JOptionPane.showMessageDialog(this, "Registration successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                        new LoginForm().setVisible(true); // Open Login Form
+                        dispose(); // Close Register Form
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Username already exists.", "Error", JOptionPane.ERROR_MESSAGE);
+                    }
                 }
-            }
-
-            // Insert new user
-            String insertQuery = "INSERT INTO users (username, password, email, location_id, is_admin, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())";
-            try (PreparedStatement insertStmt = connection.prepareStatement(insertQuery)) {
-                insertStmt.setString(1, username);
-                insertStmt.setString(2, password); // Store password in plain text
-                insertStmt.setString(3, email);
-                insertStmt.setInt(4, getLocationId(location)); // Get location ID
-                insertStmt.setBoolean(5, false); // Default to non-admin
-                insertStmt.executeUpdate();
-
-                JOptionPane.showMessageDialog(this, "Registration successful!", "Success", JOptionPane.INFORMATION_MESSAGE);
-                new LoginForm().setVisible(true); // Open Login Form
-                dispose(); // Close Register Form
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -149,9 +142,11 @@ public class RegisterForm extends JFrame {
         }
     }
 
+
     private int getLocationId(String locationName) throws SQLException {
         try (Connection connection = DatabaseConnection.getConnection()) {
-            String query = "SELECT id FROM location WHERE name = ?";
+            // Using the FetchLocations() function to get the location ID
+            String query = "SELECT id FROM FetchLocations() WHERE name = ?";
             try (PreparedStatement stmt = connection.prepareStatement(query)) {
                 stmt.setString(1, locationName);
                 ResultSet rs = stmt.executeQuery();
@@ -167,7 +162,7 @@ public class RegisterForm extends JFrame {
         ArrayList<String> locations = new ArrayList<>();
         try (Connection connection = DatabaseConnection.getConnection();
              Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT name FROM location")) {
+             ResultSet rs = stmt.executeQuery("SELECT name FROM FetchLocations()")) { // Using FetchLocations()
 
             while (rs.next()) {
                 locations.add(rs.getString("name"));
@@ -179,6 +174,8 @@ public class RegisterForm extends JFrame {
 
         return locations.toArray(new String[0]); // Convert list to array for JComboBox
     }
+
+
 
     private void styleTextField(JTextField field) {
         field.setPreferredSize(new Dimension(300, 40));
