@@ -1,19 +1,23 @@
 import javax.swing.*;
 import java.awt.*;
+import java.awt.Color;
+import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.sql.*;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 public class AdminForm extends JFrame {
     private JComboBox<String> durationComboBox;
     private JTextField licenseKeyField;
-    private JButton generateKeyButton;
-    private JButton listUsersButton;
-    private JButton goToListKeysButton;  // Added this button
+    private JButton generateKeyButton, listUsersButton, goToListKeysButton, sendToExcelButton;
 
     public AdminForm() {
         setTitle("Admin Panel");
-        setSize(500, 500); // Increased height to accommodate the new button
+        setSize(500, 550);  // Increased height to fit new button
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
@@ -51,31 +55,22 @@ public class AdminForm extends JFrame {
         styleTextField(licenseKeyField);
 
         generateKeyButton = createStyledButton("Generate License Key");
-
-        generateKeyButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                generateLicenseKey();
-            }
-        });
+        generateKeyButton.addActionListener(e -> generateLicenseKey());
 
         listUsersButton = createStyledButton("Go to List Users");
-        listUsersButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                new ListUsersForm().setVisible(true);
-                dispose();
-            }
+        listUsersButton.addActionListener(e -> {
+            new ListUsersForm().setVisible(true);
+            dispose();
         });
 
-        goToListKeysButton = createStyledButton("Go to List Keys");  // New button
-        goToListKeysButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                new ListKeysForm().setVisible(true); // Open List Keys Form
-                dispose(); // Close Admin Form
-            }
+        goToListKeysButton = createStyledButton("Go to List Keys");
+        goToListKeysButton.addActionListener(e -> {
+            new ListKeysForm().setVisible(true);
+            dispose();
         });
+
+        sendToExcelButton = createStyledButton("Send to Excel");  // New button
+        sendToExcelButton.addActionListener(e -> generateExcelWithData());
 
         // Adding components to formPanel
         gbc.gridx = 0;
@@ -92,7 +87,9 @@ public class AdminForm extends JFrame {
         gbc.gridy++;
         formPanel.add(listUsersButton, gbc);
         gbc.gridy++;
-        formPanel.add(goToListKeysButton, gbc);  // Add new button here
+        formPanel.add(goToListKeysButton, gbc);
+        gbc.gridy++;
+        formPanel.add(sendToExcelButton, gbc);  // Add new button
 
         panel.add(titlePanel, BorderLayout.NORTH);
         panel.add(formPanel, BorderLayout.CENTER);
@@ -100,70 +97,69 @@ public class AdminForm extends JFrame {
         add(panel);
     }
 
-    private void generateLicenseKey() {
-        String durationText = (String) durationComboBox.getSelectedItem();
-        int duration = 0;
-
-        // Map duration text to number of months
-        switch (durationText) {
-            case "1 Month":
-                duration = 1;
-                break;
-            case "6 Months":
-                duration = 6;
-                break;
-            case "1 Year":
-                duration = 12;
-                break;
-        }
-
-        if (duration == 0) {
-            JOptionPane.showMessageDialog(this, "Please select a valid duration.", "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-
-        String licenseKey = generateRandomKey();
-
+    private void generateExcelWithData() {
         try (Connection connection = DatabaseConnection.getConnection()) {
+            String query = "SELECT u.username, u.email, l.license_key, l.duration, l.expiration_date " +
+                    "FROM users u " +
+                    "JOIN license_user lu ON u.id = lu.user_id " +
+                    "JOIN license l ON lu.license_id = l.id";
 
-            String query = "SELECT generate_license_key_new(?, ?)";
+            try (PreparedStatement stmt = connection.prepareStatement(query);
+                 ResultSet rs = stmt.executeQuery()) {
 
-            try (PreparedStatement stmt = connection.prepareStatement(query)) {
-                stmt.setString(1, licenseKey);
-                stmt.setInt(2, duration);
+                try (Workbook workbook = new XSSFWorkbook()) {
+                    Sheet sheet = workbook.createSheet("Users and Keys");
+                    Row headerRow = sheet.createRow(0);
 
-                ResultSet rs = stmt.executeQuery();
-                if (rs.next()) {
-                    String generatedKey = rs.getString(1);
-                    licenseKeyField.setText(generatedKey);
-                    JOptionPane.showMessageDialog(this, "License Key Generated: " + generatedKey, "Success", JOptionPane.INFORMATION_MESSAGE);
+                    headerRow.createCell(0).setCellValue("Username");
+                    headerRow.createCell(1).setCellValue("Email");
+                    headerRow.createCell(2).setCellValue("License Key");
+                    headerRow.createCell(3).setCellValue("Duration");
+                    headerRow.createCell(4).setCellValue("Expiration Date");
+
+                    int rowNum = 1;
+                    while (rs.next()) {
+                        Row row = sheet.createRow(rowNum++);
+                        row.createCell(0).setCellValue(rs.getString("username"));
+                        row.createCell(1).setCellValue(rs.getString("email"));
+                        row.createCell(2).setCellValue(rs.getString("license_key"));
+                        row.createCell(3).setCellValue(rs.getInt("duration"));
+                        row.createCell(4).setCellValue(rs.getTimestamp("expiration_date"));
+                    }
+
+                    JFileChooser fileChooser = new JFileChooser();
+                    fileChooser.setDialogTitle("Save Excel File");
+                    fileChooser.setSelectedFile(new File("users_and_keys.xlsx"));
+                    int userSelection = fileChooser.showSaveDialog(this);
+
+                    if (userSelection == JFileChooser.APPROVE_OPTION) {
+                        File fileToSave = fileChooser.getSelectedFile();
+                        try (FileOutputStream fileOut = new FileOutputStream(fileToSave)) {
+                            workbook.write(fileOut);
+                        }
+                        JOptionPane.showMessageDialog(this, "Excel file created successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                    }
+
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    JOptionPane.showMessageDialog(this, "Error generating Excel file: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 }
             }
-            // If auto-commit is disabled, uncomment the next line:
-            // connection.commit();
-        } catch (SQLException e) {
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Database error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Database error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
-    // SQL function to generate the license key (Random 16-character string)
-    private String generateRandomKey() {
+    private void generateLicenseKey() {
         String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
         StringBuilder key = new StringBuilder(16);
         for (int i = 0; i < 16; i++) {
             int randomIndex = (int) (Math.random() * characters.length());
             key.append(characters.charAt(randomIndex));
         }
-        return key.toString();
-    }
-
-    private String getExpirationDate(int duration) {
-
-        java.util.Calendar calendar = java.util.Calendar.getInstance();
-        calendar.add(java.util.Calendar.MONTH, duration);
-        java.util.Date expiration = calendar.getTime();
-        return new java.text.SimpleDateFormat("yyyy-MM-dd").format(expiration);
+        licenseKeyField.setText(key.toString());
     }
 
     private void styleTextField(JTextField field) {
