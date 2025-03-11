@@ -69,7 +69,7 @@ public class AdminForm extends JFrame {
             dispose();
         });
 
-        sendToExcelButton = createStyledButton("Send to Excel");  // New button
+        sendToExcelButton = createStyledButton("Send to Excel");
         sendToExcelButton.addActionListener(e -> generateExcelWithData());
 
         // Adding components to formPanel
@@ -89,12 +89,65 @@ public class AdminForm extends JFrame {
         gbc.gridy++;
         formPanel.add(goToListKeysButton, gbc);
         gbc.gridy++;
-        formPanel.add(sendToExcelButton, gbc);  // Add new button
+        formPanel.add(sendToExcelButton, gbc);
 
         panel.add(titlePanel, BorderLayout.NORTH);
         panel.add(formPanel, BorderLayout.CENTER);
 
         add(panel);
+    }
+
+    private void generateLicenseKey() {
+        // Generate a random license key
+        String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        StringBuilder key = new StringBuilder(16);
+        for (int i = 0; i < 16; i++) {
+            int randomIndex = (int) (Math.random() * characters.length());
+            key.append(characters.charAt(randomIndex));
+        }
+        String generatedKey = key.toString();
+        licenseKeyField.setText(generatedKey);  // Display generated key
+
+        // Get the selected duration
+        String selectedDuration = (String) durationComboBox.getSelectedItem();
+        int durationInMonths = getDurationInMonths(selectedDuration);
+
+        // Call the SQL function to insert the generated key into the database
+        try (Connection connection = DatabaseConnection.getConnection()) {
+            String sql = "SELECT generate_license_key_new(?, ?)";  // Correct way to call the function
+
+            try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+                // Set input parameters for the SQL function
+                stmt.setString(1, generatedKey);  // Pass the generated key
+                stmt.setInt(2, durationInMonths);  // Pass the selected duration
+
+                // Execute the query
+                ResultSet rs = stmt.executeQuery();
+
+                // Fetch the result (the generated license key)
+                if (rs.next()) {
+                    String returnedLicenseKey = rs.getString(1);
+                    JOptionPane.showMessageDialog(this, "License key generated and stored successfully: " + returnedLicenseKey, "Success", JOptionPane.INFORMATION_MESSAGE);
+                }
+            }
+
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Error calling SQL function: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private int getDurationInMonths(String selectedDuration) {
+        switch (selectedDuration) {
+            case "1 Month":
+                return 1;
+            case "6 Months":
+                return 6;
+            case "1 Year":
+                return 12;
+            default:
+                return 1; // Default to 1 month
+        }
     }
 
     private void generateExcelWithData() {
@@ -150,16 +203,6 @@ public class AdminForm extends JFrame {
             ex.printStackTrace();
             JOptionPane.showMessageDialog(this, "Database error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
-    }
-
-    private void generateLicenseKey() {
-        String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-        StringBuilder key = new StringBuilder(16);
-        for (int i = 0; i < 16; i++) {
-            int randomIndex = (int) (Math.random() * characters.length());
-            key.append(characters.charAt(randomIndex));
-        }
-        licenseKeyField.setText(key.toString());
     }
 
     private void styleTextField(JTextField field) {
