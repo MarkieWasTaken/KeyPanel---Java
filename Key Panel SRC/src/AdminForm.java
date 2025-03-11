@@ -8,18 +8,18 @@ public class AdminForm extends JFrame {
     private JComboBox<String> durationComboBox;
     private JTextField licenseKeyField;
     private JButton generateKeyButton;
-    private JButton listUsersButton; // New button to go to ListUsers Form
+    private JButton listUsersButton;
+    private JButton goToListKeysButton;  // Added this button
 
     public AdminForm() {
         setTitle("Admin Panel");
-        setSize(500, 400);
+        setSize(500, 500); // Increased height to accommodate the new button
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
         JPanel panel = new JPanel();
         panel.setLayout(new BorderLayout());
 
-        // Title section with background color
         JPanel titlePanel = new JPanel();
         titlePanel.setBackground(new Color(47, 49, 54));
         JLabel titleLabel = new JLabel("Admin Panel - License Key Generator", JLabel.CENTER);
@@ -27,7 +27,6 @@ public class AdminForm extends JFrame {
         titleLabel.setForeground(Color.WHITE);
         titlePanel.add(titleLabel);
 
-        // Main form panel
         JPanel formPanel = new JPanel();
         formPanel.setLayout(new GridBagLayout());
         formPanel.setBackground(new Color(47, 49, 54));
@@ -60,17 +59,25 @@ public class AdminForm extends JFrame {
             }
         });
 
-        // Button to go to ListUsers Form
         listUsersButton = createStyledButton("Go to List Users");
         listUsersButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 new ListUsersForm().setVisible(true);
                 dispose();
-
             }
         });
 
+        goToListKeysButton = createStyledButton("Go to List Keys");  // New button
+        goToListKeysButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                new ListKeysForm().setVisible(true); // Open List Keys Form
+                dispose(); // Close Admin Form
+            }
+        });
+
+        // Adding components to formPanel
         gbc.gridx = 0;
         gbc.gridy = 0;
         formPanel.add(durationLabel, gbc);
@@ -83,10 +90,12 @@ public class AdminForm extends JFrame {
         gbc.gridy++;
         formPanel.add(generateKeyButton, gbc);
         gbc.gridy++;
-        formPanel.add(listUsersButton, gbc);  // Add the List Users button at the bottom
+        formPanel.add(listUsersButton, gbc);
+        gbc.gridy++;
+        formPanel.add(goToListKeysButton, gbc);  // Add new button here
 
-        panel.add(titlePanel, BorderLayout.NORTH); // Add the title panel at the top
-        panel.add(formPanel, BorderLayout.CENTER);  // Form panel below the title
+        panel.add(titlePanel, BorderLayout.NORTH);
+        panel.add(formPanel, BorderLayout.CENTER);
 
         add(panel);
     }
@@ -114,11 +123,11 @@ public class AdminForm extends JFrame {
         }
 
         String licenseKey = generateRandomKey();
-        String expirationDate = getExpirationDate(duration);
 
         try (Connection connection = DatabaseConnection.getConnection()) {
-            // Insert the generated license key into the database
-            String query = "SELECT generate_license_key(?, ?)";
+
+            String query = "SELECT generate_license_key_new(?, ?)";
+
             try (PreparedStatement stmt = connection.prepareStatement(query)) {
                 stmt.setString(1, licenseKey);
                 stmt.setInt(2, duration);
@@ -130,6 +139,8 @@ public class AdminForm extends JFrame {
                     JOptionPane.showMessageDialog(this, "License Key Generated: " + generatedKey, "Success", JOptionPane.INFORMATION_MESSAGE);
                 }
             }
+            // If auto-commit is disabled, uncomment the next line:
+            // connection.commit();
         } catch (SQLException e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(this, "Database error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
@@ -148,8 +159,7 @@ public class AdminForm extends JFrame {
     }
 
     private String getExpirationDate(int duration) {
-        // Use the current date and add the duration to calculate the expiration date
-        // (In practice, you would use a more robust date library, like LocalDate)
+
         java.util.Calendar calendar = java.util.Calendar.getInstance();
         calendar.add(java.util.Calendar.MONTH, duration);
         java.util.Date expiration = calendar.getTime();

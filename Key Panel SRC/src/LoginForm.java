@@ -6,6 +6,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 public class LoginForm extends JFrame {
+
     private JTextField usernameField;
     private JPasswordField passwordField;
 
@@ -101,8 +102,14 @@ public class LoginForm extends JFrame {
                             new AdminForm().setVisible(true);
                             dispose();
                         } else {
-                            JOptionPane.showMessageDialog(this, "Login successful! Logged in as User.", "Success", JOptionPane.INFORMATION_MESSAGE);
-                            new UserForm().setVisible(true);
+                            // Check if the user has a valid key
+                            if (hasValidKey(username)) {
+                                JOptionPane.showMessageDialog(this, "Login successful! Redirecting to UserForm.", "Success", JOptionPane.INFORMATION_MESSAGE);
+                                new UserForm(username).setVisible(true);
+                            } else {
+                                JOptionPane.showMessageDialog(this, "Login successful! Please activate your account.", "Success", JOptionPane.INFORMATION_MESSAGE);
+                                new AuthForm(username).setVisible(true);
+                            }
                             dispose();
                         }
                     } else {
@@ -118,8 +125,25 @@ public class LoginForm extends JFrame {
         }
     }
 
+    private boolean hasValidKey(String username) {
+        String query = "SELECT has_valid_license(?)";
 
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement ps = connection.prepareStatement(query)) {
 
+            ps.setString(1, username);
+            ResultSet rs = ps.executeQuery();
+
+            if (rs.next()) {
+                return rs.getBoolean(1); // Use getBoolean instead of getInt
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    // Styling methods for text field and button
     private void styleTextField(JTextField field) {
         field.setPreferredSize(new Dimension(300, 40));
         field.setBackground(new Color(64, 68, 75));
