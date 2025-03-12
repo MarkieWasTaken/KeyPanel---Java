@@ -44,14 +44,15 @@ Before setting up the project, ensure that you have the following installed on y
 
 ## 🤷‍♂️ My SQL Functions
 
+Double Function ( Key Generation + Logs )
 ---
-  CREATE OR REPLACE FUNCTION generate_license_key_new(p_license_key TEXT, p_duration INT)
-  RETURNS TEXT AS
-  $$
-  DECLARE
-      v_expiration_date TIMESTAMP;
-      v_admin_id INT := 1;  
-  BEGIN
+    CREATE OR REPLACE FUNCTION generate_license_key_new(p_license_key TEXT, p_duration INT)
+    RETURNS TEXT AS
+    $$
+    DECLARE
+        v_expiration_date TIMESTAMP;
+        v_admin_id INT := 1;  
+    BEGIN
      
       v_expiration_date := NOW() + (p_duration || ' months')::interval;
   
@@ -65,7 +66,75 @@ Before setting up the project, ensure that you have the following installed on y
   
       
       RETURN p_license_key;
-  END;
-  $$ LANGUAGE plpgsql;
+    END;
+    $$ LANGUAGE plpgsql;
 ---
+
+Trigger 1# ( calculated duration on key creation (semi usefull) )
+
+---
+    CREATE OR REPLACE FUNCTION set_license_expiration_date()
+    RETURNS TRIGGER AS $$
+        BEGIN
+      
+        IF NEW.duration = 1 THEN
+            NEW.expiration_date := CURRENT_DATE + INTERVAL '1 month';
+        ELSIF NEW.duration = 6 THEN
+            NEW.expiration_date := CURRENT_DATE + INTERVAL '6 months';
+        ELSIF NEW.duration = 12 THEN
+            NEW.expiration_date := CURRENT_DATE + INTERVAL '1 year';
+        ELSE
+            RAISE EXCEPTION 'Invalid duration for license key';
+        END IF;
+        
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+    
+    
+    CREATE TRIGGER trigger_set_license_expiration_date
+    BEFORE INSERT ON license_keys
+    FOR EACH ROW
+    EXECUTE FUNCTION set_license_expiration_date();
+---
+
+Trigger 2# ( Check for duplicates )
+
+---
+
+    CREATE OR REPLACE FUNCTION check_unique_license_key() 
+    RETURNS TRIGGER AS $$
+    BEGIN
+        
+        IF EXISTS (SELECT 1 FROM license_keys WHERE license_key = NEW.license_key) THEN
+            RAISE EXCEPTION 'License key % already exists.', NEW.license_key; //DEBUG
+        END IF;
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+    
+    
+    CREATE TRIGGER trigger_check_unique_license_key
+    BEFORE INSERT ON license_keys
+    FOR EACH ROW
+    EXECUTE FUNCTION check_unique_license_key();
+---
+
+Trigger 3# ( Everytime a key is created it also checks for other expired keys and deletes them  )
+
+---
+    CREATE OR REPLACE FUNCTION delete_expired_keys() 
+    RETURNS TRIGGER AS $$
+    BEGIN
+        DELETE FROM license WHERE expiration_date <= NOW();
+        RETURN NULL;
+    END;
+    $$ LANGUAGE plpgsql;
+    
+    CREATE TRIGGER trigger_delete_expired_keys
+    AFTER INSERT OR UPDATE ON license
+    FOR EACH ROW
+    EXECUTE FUNCTION delete_expired_keys();
+---
+
 
