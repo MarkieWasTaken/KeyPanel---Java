@@ -42,10 +42,3 @@ Before setting up the project, ensure that you have the following installed on y
 
 ---
 
-### 🧑‍💻 Clone the Repository
-
-To get started, clone the repository to your local machine using the following Git command:
-
-```bash
-git clone https://github.com/yourusername/license-key-management.git
-cd license-key-management
