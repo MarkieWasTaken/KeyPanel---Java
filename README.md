@@ -42,3 +42,30 @@ Before setting up the project, ensure that you have the following installed on y
 
 ---
 
+## 🤷‍♂️ My SQL Functions
+
+---
+  CREATE OR REPLACE FUNCTION generate_license_key_new(p_license_key TEXT, p_duration INT)
+  RETURNS TEXT AS
+  $$
+  DECLARE
+      v_expiration_date TIMESTAMP;
+      v_admin_id INT := 1;  
+  BEGIN
+     
+      v_expiration_date := NOW() + (p_duration || ' months')::interval;
+  
+      
+      INSERT INTO license(license_key, duration, active, expiration_date, created_at, updated_at)
+      VALUES (p_license_key, p_duration, FALSE, v_expiration_date, NOW(), NOW());
+  
+      
+      INSERT INTO log(table_name, action, executed_by, executed_at)
+      VALUES ('license', 'License key generated: ' || p_license_key, v_admin_id, NOW());
+  
+      
+      RETURN p_license_key;
+  END;
+  $$ LANGUAGE plpgsql;
+---
+
