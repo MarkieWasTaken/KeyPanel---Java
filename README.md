@@ -137,4 +137,79 @@ Trigger 3# ( Everytime a key is created it also checks for other expired keys an
     EXECUTE FUNCTION delete_expired_keys();
 ---
 
+## 😒 Some boring random functions i included
+
+---
+
+
+---
+        CREATE OR REPLACE FUNCTION get_license_keys()
+        RETURNS TABLE (
+            license_id INT,
+            license_key VARCHAR,
+            is_used BOOLEAN,
+            username VARCHAR
+        ) AS $$
+        BEGIN
+            RETURN QUERY 
+            SELECT 
+                l.id AS license_id, 
+                l.license_key, 
+                l.active AS is_used, 
+                u.username
+            FROM license l
+            LEFT JOIN license_user lu ON l.id = lu.license_id
+            LEFT JOIN users u ON lu.user_id = u.id;
+        END;
+$$ LANGUAGE plpgsql;
+
+---
+        CREATE OR REPLACE FUNCTION activate_license(p_license_id INT)
+        RETURNS VOID AS
+        $$
+        BEGIN
+            UPDATE license
+            SET active = TRUE, updated_at = NOW()
+            WHERE id = p_license_id;
+        END;
+        $$ LANGUAGE plpgsql;
+---
+
+---
+        CREATE OR REPLACE FUNCTION check_license_key(p_license_key TEXT)
+        RETURNS TABLE(license_id INT, is_valid BOOLEAN) AS
+        $$
+        BEGIN
+            RETURN QUERY
+            SELECT l.id, l.active
+            FROM license l
+            WHERE l.license_key = p_license_key
+              AND l.active = FALSE
+              AND l.expiration_date > NOW();
+        END;
+        $$ LANGUAGE plpgsql;
+
+---
+
+---
+        CREATE OR replace FUNCTION FetchLocations() RETURNS TABLE (id INT, name TEXT) AS $$
+        BEGIN
+            RETURN QUERY SELECT id, name FROM location;
+        END;
+        $$ LANGUAGE plpgsql;
+---
+
+---
+        CREATE FUNCTION IsUserAdmin(user_id INT) RETURNS BOOLEAN AS $$
+        DECLARE
+            admin_status BOOLEAN;
+        BEGIN
+            SELECT is_admin INTO admin_status FROM users WHERE id = IsUserAdmin.user_id;
+            RETURN admin_status;
+        END;
+        $$ LANGUAGE plpgsql;
+
+---
+
+
 
